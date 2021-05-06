@@ -31,13 +31,14 @@ class Module():
         """Trigger forward pass when instance is called like a function"""
         return self.forward(*inputs)
     
-    def forward(self, inputs: Tensor) -> NoReturn:
+    def forward(self, inputs: Tensor) -> Tensor:
         """Forward pass of the output"""
         self.inputs = inputs.clone()
+        return inputs
         
     def backward(self, gradwrtoutput: Tensor) -> Tensor:
         """Backpropagation of the gradient"""
-        raise NotImplementedError
+        return gradwrtoutput
         
     def param(self) -> list[Parameter]:
         """Returns the parameters of the module"""
