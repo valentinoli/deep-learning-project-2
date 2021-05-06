@@ -3,11 +3,14 @@ from typing import Optional, NoReturn
 from torch import empty, Tensor
 
 class Parameter():
+    """Implements a module parameter"""
     def __init__(self, dim_1: int, dim_2: Optional[int] = None):
         dim = (dim_1, dim_2)
         if not dim_2:
             dim = dim_1
+        # parameter tensor
         self.data = empty(dim).normal_()
+        # parameter gradient tensor
         self.grad = empty(self.data.size()).zero_()
         
     def __call__(self) -> Tensor:
@@ -23,23 +26,30 @@ class Parameter():
 
 
 class Module():
+    """Superclass for framework modules"""
     def __call__(self, *inputs: tuple[Tensor]) -> Tensor:
+        """Trigger forward pass when instance is called like a function"""
         return self.forward(*inputs)
     
     def forward(self, inputs: Tensor) -> NoReturn:
+        """Forward pass of the output"""
         self.inputs = inputs.clone()
         
     def backward(self, gradwrtoutput: Tensor) -> Tensor:
+        """Backpropagation of the gradient"""
         raise NotImplementedError
         
     def param(self) -> list[Parameter]:
+        """Returns the parameters of the module"""
         return []
     
     def grad_to_zero(self) -> NoReturn:
+        """Resets all gradients of the module to zero"""
         pass
 
     
 class ReLU(Module):
+    """Rectified Linear Unit activation function"""
     def __init__(self):
         super().__init__()
         
@@ -53,6 +63,7 @@ class ReLU(Module):
         
     
 class Tanh(Module):
+    """Hyperbolic tangent activation function"""
     def __init__(self):
         super().__init__()
 
@@ -66,6 +77,7 @@ class Tanh(Module):
 
 
 class Sigmoid(Module):
+    """Sigmoid activation function"""
     def __init__(self):
         super().__init__()
     
@@ -74,12 +86,13 @@ class Sigmoid(Module):
         return inputs.sigmoid()
     
     def backward(self, gradwrtoutput):
-        # Hadamard product
         sigmoid = self.inputs.sigmoid()
+        # Hadamard product
         return gradwrtoutput * sigmoid * (1 - sigmoid)
 
 
 class Linear(Module):
+    """Fully connected linear layer"""
     def __init__(self, input_dim: int, output_dim: Optional[int] = None):
         super().__init__()
         if not input_dim:
@@ -112,26 +125,34 @@ class Linear(Module):
 
 
 class Sequential(Module):
-    def __init__(self, *modules):
+    """A sequential container of modules, forming a neural net"""
+    def __init__(self, *modules: tuple[Module]):
         super().__init__()
+        # Modules are added to the container in the order they are passed in the constructor
         self.modules = modules
 
     def forward(self, inputs):
+        """Computes the full forward pass"""
         output = inputs
         for module in self.modules:
+            # Feed output of previous layer forward to the next
             output = module(output)
         return output
 
     def backward(self, gradwrtoutput):
+        """Computes the full backward pass"""
         grad = gradwrtoutput
         for module in reversed(self.modules):
+            # Propagate backwards gradient of one layer to the previous
             grad = module.backward(grad)
         return grad
 
     def param(self):
+        """Return list of parameters of all modules in order"""
         return [p for module in self.modules for p in module.param()]
     
     def grad_to_zero(self):
+        """Set gradient of all parameters in the network to zero"""
         for module in self.modules:
             module.grad_to_zero()
     
@@ -139,6 +160,7 @@ class Sequential(Module):
 
 
 class LossMSE(Module):
+    """Mean Squared Error"""
     def __init__(self):
         super().__init__()
         
@@ -152,6 +174,7 @@ class LossMSE(Module):
 
     
 class LossBCE(Module):
+    """Binary Cross Entropy"""
     def __init__(self):
         super().__init__()
         
