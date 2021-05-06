@@ -1,6 +1,4 @@
 import math
-from typing import Union
-
 from torch import empty, Tensor
 
 
@@ -14,7 +12,7 @@ def compute_label(point: tuple[float, float]) -> int:
     """
     return int(math.dist(point, disc_center) <= disc_radius)
 
-def generate_samples(n) -> tuple[Tensor, Tensor]:
+def generate_samples(n: int) -> tuple[Tensor, Tensor]:
     """
     :param n: number of samples
     :returns:
