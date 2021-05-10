@@ -24,7 +24,7 @@ def generate_samples(n: int) -> tuple[Tensor, Tensor]:
     labels = empty(n).new_tensor(list(map(compute_label, inputs))).view(-1, 1)
     return inputs, labels
 
-def generate_data(n: int = 1000) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+def generate_data(n: int = 1000) -> tuple[tuple[Tensor, Tensor], tuple[Tensor, Tensor]]:
     """
     :param n: number of samples
     :returns:
@@ -33,4 +33,26 @@ def generate_data(n: int = 1000) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         test_inputs - n test points
         test_labels - n test labels
     """
-    return (*generate_samples(n), *generate_samples(n))
+    return generate_samples(n), generate_samples(n)
+
+
+def create_batches(inputs: Tensor, labels: Tensor, size: int) -> list[tuple[Tensor, Tensor]]:
+    """
+    :param inputs: input tensor
+    :param labels: label tensor
+    :param size: batch size
+    :returns: minibatches of inputs and labels
+    """
+    assert len(inputs) == len(labels)
+    return [(inputs[i:i+size], labels[i:i+size]) for i in range(0, len(inputs), size)]
+
+
+class DataLoader():
+    """Data loader class for iterating over minibatches"""
+    def __init__(self, data: tuple[Tensor, Tensor], batch_size: Optional[int] = 10):
+        self.batches = create_batches(*data, batch_size)
+    def __iter__(self):
+        self.iter = iter(self.batches)
+        return self.iter
+    def __next__(self):
+        return next(self.iter)

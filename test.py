@@ -2,7 +2,7 @@ from torch.random import manual_seed
 
 import modules as m
 from data import generate_data
-from helpers import train, compute_accuracy
+from helpers import optimize, compute_accuracy
 
 manual_seed(42)
 
@@ -21,14 +21,17 @@ model = m.Sequential(
     m.Sigmoid()
 )
 
-criterion = m.LossMSE()
+num_samples=1000
+epochs=100
+batch_size=50
+lr=0.01
 
-train_inputs, train_labels, test_inputs, test_labels = generate_data()
+train_data, test_data = generate_data(num_samples)
 
-train(model, criterion, train_inputs, train_labels)
+optimize(model, train_data, test_data, epochs=epochs, batch_size=batch_size, lr=lr)
 
-train_accuracy = compute_accuracy(model, train_inputs, train_labels)
-test_accuracy = compute_accuracy(model, test_inputs, test_labels)
+train_accuracy = compute_accuracy(model, *train_data)
+test_accuracy = compute_accuracy(model, *test_data)
 
 print('##################################')
 print('Train accuracy : {:.1f}%'.format(round(train_accuracy, 3) * 100))

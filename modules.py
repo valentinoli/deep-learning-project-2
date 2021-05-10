@@ -40,13 +40,13 @@ class Module():
         """Backpropagation of the gradient"""
         return gradwrtoutput
         
-    def param(self) -> list[Parameter]:
+    def parameters(self) -> list[Parameter]:
         """Returns the parameters of the module"""
         return []
     
-    def grad_to_zero(self) -> NoReturn:
-        """Resets all gradients of the module to zero"""
-        pass
+#     def zero_grad(self) -> NoReturn:
+#         """Resets all gradients of the module to zero"""
+#         pass
 
     
 class ReLU(Module):
@@ -116,12 +116,12 @@ class Linear(Module):
         self.bias.grad.add_(gradwrtoutput.T.sum(1))
         return gradwrtoutput @ self.weight()
     
-    def param(self):
+    def parameters(self):
         return [self.weight, self.bias]
     
-    def grad_to_zero(self):
-        self.weight.grad.zero_()
-        self.bias.grad.zero_()
+#     def zero_grad(self):
+#         self.weight.grad.zero_()
+#         self.bias.grad.zero_()
 
 
 
@@ -148,15 +148,15 @@ class Sequential(Module):
             grad = module.backward(grad)
         return grad
 
-    def param(self):
+    def parameters(self):
         """Return list of parameters of all modules in order"""
-        return [p for module in self.modules for p in module.param()]
+        return [p for module in self.modules for p in module.parameters()]
     
-    def grad_to_zero(self):
-        """Set gradient of all parameters in the network to zero"""
-        for module in self.modules:
-            module.grad_to_zero()
-    
+#     def zero_grad(self):
+#         """Set gradient of all parameters in the network to zero"""
+#         for module in self.modules:
+#             module.zero_grad()
+
 
 
 
@@ -191,3 +191,22 @@ class LossBCE(Module):
         x = self.inputs
         y = self.labels
         return ((1 - y) / (1 - x) - y / x) / len(y)
+
+    
+class OptimizerSGD():
+    """Class for SGD optimization of model parameters"""
+    def __init__(self, parameters: list[Parameter], lr: float):
+        self.parameters = parameters
+        self.learning_rate = lr
+        
+    def zero_grad(self) -> NoReturn:
+        """Resets gradients of all parameters to zero"""
+        for p in self.parameters:
+            p.grad.zero_()
+            
+    def step(self) -> NoReturn:
+        """Applies one step of SGD"""
+        for param in self.parameters:
+            # SGD step -> adjust network parameters
+            param -= self.learning_rate * param.grad
+            

@@ -1,40 +1,47 @@
 """Helper methods"""
-
-def create_batches(inputs, labels, size):
-    return (
-        [inputs[i:i+size] for i in range(0, len(inputs), size)],
-        [labels[i:i+size] for i in range(0, len(labels), size)]
-    )
+from modules import OptimizerSGD, LossMSE
+from data import DataLoader
 
 
-def train(model, criterion, inputs, labels, epochs=100, batch_size=100, gamma=0.0001):
-    train_batches = create_batches(inputs, labels, batch_size)
+def optimize(model, train_data, test_data, criterion=LossMSE(), epochs=100, batch_size=100, lr=0.001):
+    train_loader = DataLoader(train_data, batch_size=batch_size)
+    test_inputs, test_labels = test_data
+    
+    optimizer = OptimizerSGD(model.parameters(), lr)
+    losses = []
+    
     for epoch in range(epochs):
-        losses = []
-        for inputs, labels in zip(*train_batches):
-            outputs = model(inputs)
+        for minibatch, labels in train_loader:
+            outputs = model(minibatch)
             
             loss = criterion(outputs, labels)
-            losses.append(loss.item())
+            
             # reset gradients
-            model.grad_to_zero()
+            optimizer.zero_grad()
             
             # perform backward pass:
             # compute gradient of loss from its definition (last layer)
             grad_loss = criterion.backward()
             # ... and propagate derivatives backwards
             model.backward(grad_loss)
-            for param in model.param():
-                # SGD step -> adjust network parameters
-                param -= gamma * param.grad
+            
+            optimizer.step()
         
-        avg_loss = sum(losses) / batch_size
-        if epoch % 10 == 0:
-            print('Epoch {}/{} - Average loss: {:.2f}'.format(str(epoch+1).zfill(3), epochs, avg_loss))
+        # compute test loss
+        test_loss = criterion(model(test_inputs), test_labels).item()
+        losses.append(test_loss)
+        
+        print(
+            'Epoch {}/{} - Test loss: {:.2f}'.format(
+                str(epoch+1).zfill(3), epochs, test_loss
+            )
+        )
+    return losses
             
             
 def compute_accuracy(model, inputs, labels):
     outputs = model.forward(inputs)
+    # assuming outputs are in the range [0, 1]
     predictions = outputs.round()
     accuracy = (predictions == labels).sum() / len(labels)
     return accuracy.item()
