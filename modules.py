@@ -1,17 +1,20 @@
 from __future__ import annotations
-from typing import Optional, NoReturn
+from typing import Optional, NoReturn, Literal
 from torch import empty, Tensor
+from math import sqrt
 
 class Parameter():
     """Implements a module parameter"""
-    def __init__(self, dim_1: int, dim_2: Optional[int] = None):
-        dim = (dim_1, dim_2)
-        if not dim_2:
-            dim = dim_1
-        # parameter tensor
-        self.data = empty(dim).normal_()
-        # parameter gradient tensor
-        self.grad = empty(self.data.size()).zero_()
+    def __init__(self, dim_out: int, dim_in: Optional[int] = None):
+        dim = (dim_out, dim_in)
+        if not dim_in:
+            dim = dim_out
+            
+        self.data = empty(dim).zero_()
+        self.grad = empty(dim).zero_()
+#         self.dim_in = dim_in
+#         self.dim = dim
+#         self.reset()
         
     def __call__(self) -> Tensor:
         return self.data
@@ -23,6 +26,17 @@ class Parameter():
     def __sub__(self, other: Tensor) -> Parameter:
         self.data -= other
         return self
+    
+#     def reset(self):
+#         # parameter tensor
+#         # control variance of derivatives of the loss
+#         # so that weights evolve at the same rate across layers 
+#         # -> Var[w] = 1/3N
+#         bound = 1 / sqrt(self.dim_in)
+#         self.data = empty(self.dim).uniform_(-bound, bound)
+        
+#         # parameter gradient tensor
+#         self.grad = empty(self.dim).zero_()
 
 
 class Module():
@@ -44,13 +58,15 @@ class Module():
         """Returns the parameters of the module"""
         return []
     
-#     def zero_grad(self) -> NoReturn:
-#         """Resets all gradients of the module to zero"""
-#         pass
+    def reset_parameters(self, gain: float = 1) -> NoReturn:
+        """Resets the parameters of the module"""
+        pass
 
     
 class ReLU(Module):
     """Rectified Linear Unit activation function"""
+    gain = sqrt(2.0)
+    
     def __init__(self):
         super().__init__()
         
@@ -65,6 +81,8 @@ class ReLU(Module):
     
 class Tanh(Module):
     """Hyperbolic tangent activation function"""
+    gain = 5.0 / 3
+    
     def __init__(self):
         super().__init__()
 
@@ -79,6 +97,8 @@ class Tanh(Module):
 
 class Sigmoid(Module):
     """Sigmoid activation function"""
+    gain = 1
+    
     def __init__(self):
         super().__init__()
     
@@ -94,8 +114,17 @@ class Sigmoid(Module):
 
 class Linear(Module):
     """Fully connected linear layer"""
-    def __init__(self, input_dim: int, output_dim: Optional[int] = None):
+    def __init__(
+        self, 
+        input_dim: int, 
+        output_dim: Optional[int] = None, 
+        reset_params: bool = False,
+        init: Literal['default', 'xavier'] = 'default'
+    ):
         super().__init__()
+        # parameter initialization method
+        self.init = init
+        
         if not input_dim:
             raise ValueError('Argument input_dim is required')
             
@@ -105,6 +134,8 @@ class Linear(Module):
         # initialize
         self.weight = Parameter(output_dim, input_dim)
         self.bias = Parameter(output_dim)
+        if reset_params:
+            self.reset_parameters()
 
     def forward(self, inputs):
         super().forward(inputs)
@@ -119,10 +150,26 @@ class Linear(Module):
     def parameters(self):
         return [self.weight, self.bias]
     
-#     def zero_grad(self):
-#         self.weight.grad.zero_()
-#         self.bias.grad.zero_()
-
+    def init_xavier_normal(self, gain):
+        # Glorot initialization
+        # -> control variance of derivatives of the loss
+        # so that weights evolve at the same rate across layers 
+        std = gain * sqrt(2.0 / sum(self.weight().size()))
+        self.bias().normal_(0, std)
+        self.weight().normal_(0, std)
+        
+    def init_default(self):
+        # Default initialization
+        self.bias().normal_()
+        self.weight().normal_()
+    
+    def reset_parameters(self, gain = 1):
+        if self.init == 'xavier':
+            self.init_xavier_normal()
+        else:
+            self.init_default()
+        for p in self.parameters():
+            p.grad.zero_()
 
 
 class Sequential(Module):
@@ -131,32 +178,35 @@ class Sequential(Module):
         super().__init__()
         # Modules are added to the container in the order they are passed in the constructor
         self.modules = modules
+        self.reset_parameters()
 
     def forward(self, inputs):
         """Computes the full forward pass"""
-        output = inputs
         for module in self.modules:
             # Feed output of previous layer forward to the next
-            output = module(output)
-        return output
+            inputs = module(inputs)
+        return inputs
 
     def backward(self, gradwrtoutput):
         """Computes the full backward pass"""
-        grad = gradwrtoutput
         for module in reversed(self.modules):
             # Propagate backwards gradient of one layer to the previous
-            grad = module.backward(grad)
-        return grad
+            gradwrtoutput = module.backward(gradwrtoutput)
+        return gradwrtoutput
 
     def parameters(self):
         """Return list of parameters of all modules in order"""
         return [p for module in self.modules for p in module.parameters()]
     
-#     def zero_grad(self):
-#         """Set gradient of all parameters in the network to zero"""
-#         for module in self.modules:
-#             module.zero_grad()
-
+    def reset_parameters(self):
+        prev_module = None
+        for module in self.modules:
+            if prev_module and hasattr(prev_module, 'gain'):
+                # previous module is an activation function with recommended gain
+                module.reset_parameters(prev_module.gain)
+            else:
+                module.reset_parameters()
+            prev_module = module
 
 
 

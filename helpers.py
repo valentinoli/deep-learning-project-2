@@ -1,8 +1,10 @@
 """Helper methods"""
+import pickle
+from typing import Any
+from torch import Tensor, empty
+
 import modules as m
 from data import DataLoader
-from torch import Tensor
-from typing import Any
 
 def optimize(
     model: m.Module,
@@ -13,7 +15,7 @@ def optimize(
     batch_size: int = 100,
     lr: float = 0.001,
     verbose: Any = True
-) -> list[float]:
+) -> tuple[Tensor]:
     """
     :param model: the NN model
     :param train_data: training data
@@ -23,21 +25,26 @@ def optimize(
     :param batch_size: training minibatch size
     :param lr: the learning rate
     :param verbose: whether to print progress
+    :returns: tensors of losses (batch, training, test)
     """
     train_loader = DataLoader(train_data, batch_size=batch_size)
-    test_inputs, test_labels = test_data
-    
+    model.reset_parameters()
     optimizer = m.OptimizerSGD(model.parameters(), lr)
-    losses = []
+    
+    N = len(train_data[0])
+    
+    num_batches = N // batch_size
+    batch_losses = empty(epochs * num_batches)
+    test_losses = empty(epochs)
+    train_losses = empty(epochs)
     
     for epoch in range(epochs):
-        for minibatch, labels in train_loader:
+        for batch_idx, (minibatch, labels) in enumerate(train_loader):
+            # reset gradients
+            optimizer.zero_grad()
             outputs = model(minibatch)
             
             loss = criterion(outputs, labels)
-            
-            # reset gradients
-            optimizer.zero_grad()
             
             # perform backward pass:
             # compute gradient of loss from its definition (last layer)
@@ -45,18 +52,23 @@ def optimize(
             # ... and propagate derivatives backwards
             model.backward(grad_loss)
             
+            # compute loss on entire train set after each minibatch
+            batch_losses[epoch * num_batches + batch_idx] = criterion(model(train_data[0]), train_data[1])
+            
             optimizer.step()
         
-        # compute test loss
-        test_loss = criterion(model(test_inputs), test_labels)
-        losses.append(test_loss.item())
+        # compute losses after each epoch
+        train_loss = criterion(model(train_data[0]), train_data[1])
+        test_loss = criterion(model(test_data[0]), test_data[1])
+        train_losses[epoch] = train_loss
+        test_losses[epoch] = test_loss
         if verbose:
             print(
-                'Epoch {}/{} - Test loss: {:.2f}'.format(
-                    str(epoch+1).zfill(3), epochs, test_loss
+                'Epoch {}/{} - Train loss: {:.2f} - Test loss: {:.2f}'.format(
+                    str(epoch+1).zfill(3), epochs, train_loss, test_loss
                 )
             )
-    return losses
+    return batch_losses, train_losses, test_losses
 
 
 def predict(model: m.Module, inputs: Tensor) -> Tensor:
@@ -69,13 +81,23 @@ def predict(model: m.Module, inputs: Tensor) -> Tensor:
     return model.forward(inputs).round()
 
             
-def compute_accuracy(model: m.Module, inputs: Tensor, labels: Tensor) -> float:
+def compute_accuracy(model: m.Module, inputs: Tensor, labels: Tensor) -> tuple[Tensor, Tensor]:
     """
     :param model: the NN model
     :param inputs: input tensor
     :param labels: ground truth tensor
-    :returns: total accuracy of the predictions
+    :returns: total accuracy along with correctness tensor and predictions
     """
     predictions = predict(model, inputs)
-    accuracy = (predictions == labels).sum() / len(labels)
-    return accuracy.item()
+    correct_class = predictions == labels
+    accuracy = correct_class.sum() / len(labels)
+    return accuracy, correct_class, predictions
+
+
+def pickle_dump(filename, obj):
+    with open(f'{filename}.pkl', 'wb') as file:
+        pickle.dump(obj, file)
+
+def pickle_load(filename):
+    with open(f'{filename}.pkl', 'rb') as file:
+        return pickle.load(file)

@@ -51,8 +51,10 @@ class DataLoader():
     """Data loader class for iterating over minibatches"""
     def __init__(self, data: tuple[Tensor, Tensor], batch_size: Optional[int] = 10):
         self.batches = create_batches(*data, batch_size)
+        
     def __iter__(self):
         self.iter = iter(self.batches)
         return self.iter
+    
     def __next__(self):
         return next(self.iter)
