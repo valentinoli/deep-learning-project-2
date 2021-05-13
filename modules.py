@@ -12,9 +12,6 @@ class Parameter():
             
         self.data = empty(dim).zero_()
         self.grad = empty(dim).zero_()
-#         self.dim_in = dim_in
-#         self.dim = dim
-#         self.reset()
         
     def __call__(self) -> Tensor:
         return self.data
@@ -26,17 +23,6 @@ class Parameter():
     def __sub__(self, other: Tensor) -> Parameter:
         self.data -= other
         return self
-    
-#     def reset(self):
-#         # parameter tensor
-#         # control variance of derivatives of the loss
-#         # so that weights evolve at the same rate across layers 
-#         # -> Var[w] = 1/3N
-#         bound = 1 / sqrt(self.dim_in)
-#         self.data = empty(self.dim).uniform_(-bound, bound)
-        
-#         # parameter gradient tensor
-#         self.grad = empty(self.dim).zero_()
 
 
 class Module():
