@@ -3,17 +3,17 @@ import pickle
 from typing import Any
 from torch import Tensor, empty
 
-import modules as m
-from data import DataLoader
+import lamp as l
 
 def optimize(
-    model: m.Module,
+    model: l.Module,
     train_data: tuple[Tensor, Tensor],
     test_data: tuple[Tensor, Tensor],
-    criterion: m.Module = m.LossMSE(),
+    criterion: l.Module = l.LossMSE(),
     epochs: int = 100,
     batch_size: int = 100,
     lr: float = 0.001,
+    shuffle: bool = True,
     verbose: Any = True
 ) -> tuple[Tensor]:
     """
@@ -27,9 +27,9 @@ def optimize(
     :param verbose: whether to print progress
     :returns: tensors of losses (batch, training, test)
     """
-    train_loader = DataLoader(train_data, batch_size=batch_size)
+    train_loader = l.DataLoader(*train_data, batch_size=batch_size, shuffle=shuffle)
     model.reset_parameters()
-    optimizer = m.OptimizerSGD(model.parameters(), lr)
+    optimizer = l.OptimizerSGD(model.parameters(), lr)
     
     N = len(train_data[0])
     
@@ -71,7 +71,7 @@ def optimize(
     return batch_losses, train_losses, test_losses
 
 
-def predict(model: m.Module, inputs: Tensor) -> Tensor:
+def predict(model: l.Module, inputs: Tensor) -> Tensor:
     """
     :param model: the NN model
     :param inputs: input tensor
@@ -81,7 +81,7 @@ def predict(model: m.Module, inputs: Tensor) -> Tensor:
     return model.forward(inputs).round()
 
             
-def compute_accuracy(model: m.Module, inputs: Tensor, labels: Tensor) -> tuple[Tensor, Tensor]:
+def compute_accuracy(model: l.Module, inputs: Tensor, labels: Tensor) -> tuple[Tensor, Tensor]:
     """
     :param model: the NN model
     :param inputs: input tensor
@@ -94,10 +94,11 @@ def compute_accuracy(model: m.Module, inputs: Tensor, labels: Tensor) -> tuple[T
     return accuracy, correct_class, predictions
 
 
+"""Pickling helpers"""
 def pickle_dump(filename, obj):
-    with open(f'{filename}.pkl', 'wb') as file:
+    with open(f'pickle/{filename}.pkl', 'wb') as file:
         pickle.dump(obj, file)
 
 def pickle_load(filename):
-    with open(f'{filename}.pkl', 'rb') as file:
+    with open(f'pickle/{filename}.pkl', 'rb') as file:
         return pickle.load(file)

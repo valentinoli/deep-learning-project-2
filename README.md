@@ -1,13 +1,14 @@
 # Mini-project 2
 ## Deep learning (EE-559) @ EPFL
 
-The objective of this project is to design a mini "deep learning framework" using only pytorch's
-tensor operations and the standard math library, hence in particular without using autograd or the
-neural-network modules. 
+We present `lamp`, a mini “deep learning framework” written in Python that uses only PyTorch’s tensor operations and the standard math library.
 
-[More details](miniprojects.pdf)
+[Report](report.pdf)
 
-### Reproducing results
+[Project description](miniprojects.pdf)
+
+
+### Running the test
 
 ```bash
 py test.py
