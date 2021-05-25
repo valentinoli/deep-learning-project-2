@@ -50,7 +50,7 @@ except FileNotFoundError:
     print(f'Shuffle before each epoch: {shuffle}')
     print()
     
-    for i in reversed(range(1, 6)):
+    for i in reversed(range(1, 4)):
         sys.stdout.write("\rStarting in %i" % i)
         sys.stdout.flush()
         time.sleep(1)
@@ -61,8 +61,9 @@ except FileNotFoundError:
     
     print('##################################')
     
-    pickle_dump(filename, model)
-    print(f'Trained model pickled to {filename}.pkl')
+    # uncomment the following lines to enable model pickling
+    # pickle_dump(filename, model)
+    # print(f'Trained model pickled to {filename}.pkl')
 
 
 accuracy, correct_class, _ = compute_accuracy(model, *test_data)

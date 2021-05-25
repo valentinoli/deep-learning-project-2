@@ -6,10 +6,9 @@ import random
 
 from torch import empty, Tensor
 
-
 class Module():
     """Superclass for framework modules"""
-    def __call__(self, *inputs: tuple[Tensor]) -> Tensor:
+    def __call__(self, *inputs):
         """Trigger forward pass when instance is called like a function"""
         return self.forward(*inputs)
     
@@ -17,11 +16,11 @@ class Module():
         """Store inputs to the layer to enable computing gradients"""
         self.inputs = inputs.clone()
     
-    def forward(self, inputs: Tensor) -> Tensor:
+    def forward(self, *inputs):
         """Forward pass of the output"""
         raise NotImplementedError
         
-    def backward(self, gradwrtoutput: Tensor) -> Tensor:
+    def backward(self, *gradwrtoutput):
         """Backpropagation of the gradient"""
         raise NotImplementedError
         
@@ -59,18 +58,20 @@ class Linear(Module):
         self.weight = Parameter(output_dim, input_dim)
         self.biases = Parameter(output_dim)
 
-    def forward(self, inputs):
-        self.store_inputs(inputs)
-        output = inputs @ self.weight().T 
+    def forward(self, *inputs):
+        t = inputs[0]
+        self.store_inputs(t)
+        output = t @ self.weight().T 
         if self.bias:
             output += self.biases()
         return output
 
-    def backward(self, gradwrtoutput):
-        self.weight.grad.add_(gradwrtoutput.T @ self.inputs)
+    def backward(self, *gradwrtoutput):
+        t = gradwrtoutput[0]
+        self.weight.grad.add_(t.T @ self.inputs)
         if self.bias:
-            self.biases.grad.add_(gradwrtoutput.T.sum(1))
-        return gradwrtoutput @ self.weight()
+            self.biases.grad.add_(t.T.sum(1))
+        return t @ self.weight()
     
     def parameters(self):
         if self.bias:
@@ -111,18 +112,20 @@ class Sequential(Module):
         # Initialize parameters
         self.reset_parameters()
 
-    def forward(self, inputs):
+    def forward(self, *inputs):
         """Computes the full forward pass"""
         for module in self.modules:
             # Feed output of previous layer forward to the next
-            inputs = module(inputs)
+            inputs = inputs if isinstance(inputs, tuple) else (inputs,)
+            inputs = module(*inputs)
         return inputs
 
-    def backward(self, gradwrtoutput):
+    def backward(self, *gradwrtoutput):
         """Computes the full backward pass"""
         for module in reversed(self.modules):
             # Propagate backwards gradient of one layer to the previous
-            gradwrtoutput = module.backward(gradwrtoutput)
+            gradwrtoutput = gradwrtoutput if isinstance(gradwrtoutput, tuple) else (gradwrtoutput,)
+            gradwrtoutput = module.backward(*gradwrtoutput)
         return gradwrtoutput
 
     def parameters(self):
@@ -149,13 +152,14 @@ class ReLU(Module):
     def __init__(self):
         super().__init__()
         
-    def forward(self, inputs):
-        self.store_inputs(inputs)
-        return inputs.clamp(min=0)
+    def forward(self, *inputs):
+        t = inputs[0]
+        self.store_inputs(t)
+        return t.clamp(min=0)
     
-    def backward(self, gradwrtoutput):
+    def backward(self, *gradwrtoutput):
         # Hadamard product
-        return gradwrtoutput * self.inputs.heaviside(empty(1).zero_())
+        return gradwrtoutput[0] * self.inputs.heaviside(empty(1).zero_())
         
     
 class Tanh(Module):
@@ -165,13 +169,14 @@ class Tanh(Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, inputs):
-        self.store_inputs(inputs)
-        return inputs.tanh()
+    def forward(self, *inputs):
+        t = inputs[0]
+        self.store_inputs(t)
+        return t.tanh()
 
-    def backward(self, gradwrtoutput):
+    def backward(self, *gradwrtoutput):
         # Hadamard product
-        return gradwrtoutput * (1 - self.inputs.tanh() ** 2)
+        return gradwrtoutput[0] * (1 - self.inputs.tanh() ** 2)
 
 
 class Sigmoid(Module):
@@ -181,14 +186,15 @@ class Sigmoid(Module):
     def __init__(self):
         super().__init__()
     
-    def forward(self, inputs):
-        self.store_inputs(inputs)
-        return inputs.sigmoid()
+    def forward(self, *inputs):
+        t = inputs[0]
+        self.store_inputs(t)
+        return t.sigmoid()
     
-    def backward(self, gradwrtoutput):
+    def backward(self, *gradwrtoutput):
         sigmoid = self.inputs.sigmoid()
         # Hadamard product
-        return gradwrtoutput * sigmoid * (1 - sigmoid)
+        return gradwrtoutput[0] * sigmoid * (1 - sigmoid)
 
 
 """Losses"""
@@ -198,10 +204,11 @@ class LossMSE(Module):
     def __init__(self):
         super().__init__()
         
-    def forward(self, inputs, labels):
-        self.store_inputs(inputs)
-        self.labels = labels
-        return (inputs - labels).pow(2).sum() / len(inputs)
+    def forward(self, *inputs):
+        x, y = inputs
+        self.store_inputs(x)
+        self.labels = y
+        return (x - y).pow(2).sum() / len(x)
         
     def backward(self):
         return 2 * (self.inputs - self.labels) / len(self.inputs)
@@ -212,10 +219,9 @@ class LossBCE(Module):
     def __init__(self):
         super().__init__()
         
-    def forward(self, inputs, labels):
-        self.store_inputs(inputs)
-        x = inputs
-        y = labels
+    def forward(self, *inputs):
+        x, y = inputs
+        self.store_inputs(x)
         self.labels = y
         loss = -(y.T @ x.log() + (1 - y).T @ (1 - x).log())
         return loss.sum() / len(y)
