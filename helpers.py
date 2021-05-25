@@ -13,7 +13,7 @@ def optimize(
     epochs: int = 100,
     batch_size: int = 100,
     lr: float = 0.001,
-    shuffle: bool = True,
+    shuffle: bool = False,
     verbose: Any = True
 ) -> tuple[Tensor]:
     """
@@ -28,7 +28,6 @@ def optimize(
     :returns: tensors of losses (batch, training, test)
     """
     train_loader = l.DataLoader(*train_data, batch_size=batch_size, shuffle=shuffle)
-    model.reset_parameters()
     optimizer = l.OptimizerSGD(model.parameters(), lr)
     
     N = len(train_data[0])
@@ -62,7 +61,7 @@ def optimize(
         test_loss = criterion(model(test_data[0]), test_data[1])
         train_losses[epoch] = train_loss
         test_losses[epoch] = test_loss
-        if verbose:
+        if verbose and epoch % 10 == 0:
             print(
                 'Epoch {}/{} - Train loss: {:.2f} - Test loss: {:.2f}'.format(
                     str(epoch+1).zfill(3), epochs, train_loss, test_loss

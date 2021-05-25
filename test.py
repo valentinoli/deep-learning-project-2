@@ -59,7 +59,7 @@ except FileNotFoundError:
     
     print('##################################')
     
-    #pickle_dump(filename, model)
+    pickle_dump(filename, model)
     print(f'Trained model pickled to {filename}.pkl')
 
 

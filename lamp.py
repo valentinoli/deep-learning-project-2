@@ -40,7 +40,6 @@ class Linear(Module):
         self, 
         input_dim: int, 
         output_dim: Optional[int] = None, 
-        reset_params: bool = False,
         init: Literal['default', 'xavier'] = 'default',
         bias: bool = True
     ):
@@ -59,8 +58,6 @@ class Linear(Module):
         # initialize
         self.weight = Parameter(output_dim, input_dim)
         self.biases = Parameter(output_dim)
-        if reset_params:
-            self.reset_parameters()
 
     def forward(self, inputs):
         self.store_inputs(inputs)
@@ -95,6 +92,8 @@ class Linear(Module):
         self.weight().normal_()
     
     def reset_parameters(self, gain = 1):
+        """Initialize parameters:
+            called from Sequential, otherwise needs to be called manually"""
         if self.init == 'xavier':
             self.init_xavier_normal(gain)
         else:
@@ -109,6 +108,7 @@ class Sequential(Module):
         super().__init__()
         # Modules are added to the container in the order they are passed in the constructor
         self.modules = modules
+        # Initialize parameters
         self.reset_parameters()
 
     def forward(self, inputs):
@@ -130,6 +130,7 @@ class Sequential(Module):
         return [p for module in self.modules for p in module.parameters()]
     
     def reset_parameters(self):
+        """Reset parameters of all modules in the container"""
         for i, module in enumerate(self.modules):
             next_module = self.modules[i+1] if i+1 < len(self.modules) else None
             if next_module and hasattr(next_module, 'gain'):
@@ -226,6 +227,7 @@ class LossBCE(Module):
 
 
 """Optimizers"""
+
 class Optimizer():
     """Superclass for optimizers"""
     def __init__(self, parameters: list[Parameter]):
@@ -254,7 +256,52 @@ class OptimizerSGD(Optimizer):
             param -= self.learning_rate * param.grad
 
 
-"""Miscallaneous"""
+"""Data loaders"""
+
+class DataLoader():
+    """Data loader class for iterating over minibatches"""
+    def __init__(self, inputs: Tensor, labels: Tensor, batch_size: int = 10, shuffle: bool = False):
+        assert len(inputs) == len(labels)
+        self.inputs = inputs
+        self.labels = labels
+        self.size = len(inputs)
+        self.batch_size = batch_size
+        # set shuffle to True to have the data reshuffled at every epoch
+        self.shuffle = shuffle
+        self.__init_data()
+        
+    def __shuffle(self) -> NoReturn:
+        """Shuffle inputs and labels"""
+        indices = [*range(self.size)]
+        random.shuffle(indices)
+        self.inputs = self.inputs[indices]
+        self.labels = self.labels[indices]
+
+    def __create_batches(self, shuffle: bool = True) -> NoReturn:
+        """Create minibatches of inputs and labels"""
+        if shuffle:
+            self.__shuffle()
+            
+        s = self.size
+        self.batches = [
+            (self.inputs[i:i+s], self.labels[i:i+s])
+            for i in range(0, s, self.batch_size)
+        ]
+        
+    def __init_data(self) -> NoReturn:
+        if self.shuffle:
+            self.__shuffle()
+        self.__create_batches()
+        
+    def __iter__(self) -> Iterator[tuple[Tensor, Tensor]]:
+        iterator = iter(self.batches)
+        if self.shuffle:
+            # re-shuffle the data and create new batches for the next epoch
+            self.__init_data()
+        return iterator
+
+            
+"""Internals"""
 
 class Parameter():
     """Implements a module parameter"""
@@ -276,45 +323,3 @@ class Parameter():
     def __sub__(self, other: Tensor) -> Parameter:
         self.data -= other
         return self
-
-
-class DataLoader():
-    """Data loader class for iterating over minibatches"""
-    def __init__(self, inputs: Tensor, labels: Tensor, batch_size: int = 10, shuffle: bool = True):
-        assert len(inputs) == len(labels)
-        self.inputs = inputs
-        self.labels = labels
-        self.size = len(inputs)
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.__init()
-        
-    def __shuffle(self) -> NoReturn:
-        """Shuffle inputs and labels"""
-        indices = [*range(self.size)]
-        random.shuffle(indices)
-        self.inputs = self.inputs[indices]
-        self.labels = self.labels[indices]
-
-    def __create_batches(self, shuffle: bool = True) -> NoReturn:
-        """Create minibatches of inputs and labels"""
-        if shuffle:
-            self.__shuffle()
-            
-        s = self.size
-        self.batches = [
-            (self.inputs[i:i+s], self.labels[i:i+s])
-            for i in range(0, s, self.batch_size)
-        ]
-        
-    def __init(self) -> NoReturn:
-        if self.shuffle:
-            self.__shuffle()
-        self.__create_batches()
-        
-    def __iter__(self) -> Iterator[tuple[Tensor, Tensor]]:
-        iterator = iter(self.batches)
-        if self.shuffle:
-            # re-shuffle the data and create new batches for the next epoch
-            self.__init()
-        return iterator
