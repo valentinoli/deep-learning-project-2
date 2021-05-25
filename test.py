@@ -1,16 +1,18 @@
 import time, sys
 
-from torch.random import manual_seed
+from torch import random, set_grad_enabled
 
 import lamp as l
 from data import generate_data
 from helpers import optimize, compute_accuracy, pickle_load, pickle_dump
 from plot import plot_results
 
+set_grad_enabled(False)
+
 filename = 'model'
 
 # Load data
-manual_seed(42)
+random.manual_seed(42)
 num_samples = 1000
 train_data, test_data = generate_data(num_samples)
 
