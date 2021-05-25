@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from matplotlib import pyplot as plt
 from matplotlib import axes, patches, path
 from torch import Tensor
+
 from data import disc_radius, disc_center
 
 def plot_dataset(
