@@ -1,6 +1,6 @@
 import time, sys
 
-from torch import random, set_grad_enabled
+from torch import set_grad_enabled
 
 import lamp as l
 from data import generate_data
@@ -12,7 +12,6 @@ set_grad_enabled(False)
 filename = 'model'
 
 # Load data
-random.manual_seed(42)
 num_samples = 1000
 train_data, test_data = generate_data(num_samples)
 

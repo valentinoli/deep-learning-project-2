@@ -82,7 +82,7 @@ def predict(model: l.Module, inputs: Tensor) -> Tensor:
     return model.forward(inputs).round()
 
             
-def compute_accuracy(model: l.Module, inputs: Tensor, labels: Tensor) -> tuple[Tensor, Tensor]:
+def compute_accuracy(model: l.Module, inputs: Tensor, labels: Tensor) -> tuple[Tensor, Tensor, Tensor]:
     """
     :param model: the NN model
     :param inputs: input tensor
